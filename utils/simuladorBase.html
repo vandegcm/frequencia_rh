@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Horas Extras e Redutor — NRHS/SESA</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Alpine.js CDN (Para gerenciar o estado de forma reativa e leve) -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  
+  <!-- Fontes do Google (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Estilos específicos para a impressão */
+    @media print {
+      body {
+        background-color: white !important;
+        color: black !important;
+      }
+      .print\:hidden {
+        display: none !important;
+      }
+      .print\:border-none {
+        border: none !important;
+      }
+      .print\:shadow-none {
+        box-shadow: none !important;
+      }
+      .print\:p-0 {
+        padding: 0 !important;
+      }
+      .print\:m-0 {
+        margin: 0 !important;
+      }
+      .print\:text-black {
+        color: black !important;
+      }
+      .print\:bg-slate-50 {
+        background-color: #f8fafc !important;
+      }
+      .print\:border-slate-300 {
+        border-color: #cbd5e1 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-800 flex flex-col items-center print:bg-white print:p-0"
+      x-data="{
+        // --- ESTADOS: Configurações Funcionais ---
+        quadro: 'QPSS',
+        carga: 40,
+
+        // --- ESTADOS: Informações Salariais ---
+        salarioBase: 0,
+        gas: 0,
+        quinquenio19: 0,
+        quinquenio1059: 0,
+
+        // --- ESTADOS: Quantidades de Horas ---
+        heDiurna: 0,
+        heDomFer: 0,
+        heNoturna: 0,
+        sobreaviso: 0,
+        adcNoturno: 0,
+
+        // --- AUXILIAR DE FORMATAÇÃO ---
+        formatCurrency(value) {
+          return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        },
+
+        // --- CÁLCULOS DERIVADOS ---
+        get sv1() {
+          return (Number(this.salarioBase) || 0) + (Number(this.gas) || 0) + (Number(this.quinquenio19) || 0) + (Number(this.quinquenio1059) || 0);
+        },
+        get sv2() {
+          return (Number(this.salarioBase) || 0) + (Number(this.quinquenio19) || 0) + (Number(this.quinquenio1059) || 0);
+        },
+        get svPrincipal() {
+          return this.quadro === 'QPSS' ? this.sv1 : this.sv2;
+        },
+        get ch() {
+          return this.carga === 40 ? 200 : 100;
+        },
+        get ftAdcNoturno() {
+          return 1.14285;
+        },
+        get ftHeNoturna() {
+          return 1.3714;
+        },
+
+        // Valores de adicionais
+        get valHeDiurna() {
+          return ((this.svPrincipal / this.ch) * (Number(this.heDiurna) || 0)) * 1.5;
+        },
+        get valHeDomFer() {
+          return ((this.svPrincipal / this.ch) * (Number(this.heDomFer) || 0)) * 2.0;
+        },
+        get valHeNoturna() {
+          return (((this.svPrincipal / this.ch) * (Number(this.heNoturna) || 0)) * 1.5) * this.ftHeNoturna;
+        },
+        get valSobreaviso() {
+          return ((this.sv2 / this.ch) * (Number(this.sobreaviso) || 0)) * 0.3333;
+        },
+        get valAdcNoturno() {
+          return (((this.sv1 / this.ch) * (Number(this.adcNoturno) || 0)) * 0.20) * this.ftAdcNoturno;
+        },
+
+        // Redutor de Horas Extras
+        get rt() {
+          return this.sv1 * 0.3333;
+        },
+        get she() {
+          return this.valHeDiurna + this.valHeDomFer + this.valHeNoturna;
+        },
+        get redutorAplicado() {
+          return this.she > this.rt ? (this.she - this.rt) : 0;
+        },
+
+        // Totais
+        get totalBrutoGeral() {
+          return this.she + this.valSobreaviso + this.valAdcNoturno;
+        },
+        get totalLiquido() {
+          return this.totalBrutoGeral - this.redutorAplicado;
+        }
+      }">
+
+  <!-- CONTAINER CENTRAL -->
+  <div class="max-w-6xl w-full p-4 md:p-8 flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 print:block print:p-0">
+    
+    <!-- COLUNA ESQUERDA: Formulário, Logotipo e Avisos -->
+    <div class="lg:col-span-2 space-y-6 print:w-full">
+      
+      <!-- Logo SESA/PR e Cabeçalho -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 print:border-none print:p-0 print:mb-6">
+        <div class="flex items-center gap-4">
+          <img 
+            src="https://www.saude.pr.gov.br/sites/default/arquivos_restritos/files/imagem/2021-05/609ea8241d33f-BrasaoSaude%28Horizontal-RGB%29.jpg" 
+            alt="Brasão Saúde SESA/PR" 
+            class="h-16 md:h-20 object-contain"
+            onerror="this.style.display='none'"
+          />
+          <div class="border-l pl-4 border-slate-300">
+            <h1 class="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              Simulador de Horas Extras e Redutor
+            </h1>
+            <p class="text-xs font-bold text-blue-600 uppercase tracking-wider mt-0.5">
+              NRHS / SESA-PR
+            </p>
+          </div>
+        </div>
+
+        <!-- Botão Imprimir -->
+        <button
+          onclick="window.print()"
+          class="print:hidden flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow hover:shadow-md transition-all self-start sm:self-center"
+        >
+          <!-- Ícone de impressora inline SVG -->
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.617 0-1.11-.51-1.07-1.122L6.34 18m11.32 0h-11.32M9 10.5h.008v.008H9V10.5zm3 0h.008v.008H12V10.5zm3 0h.008v.008H15V10.5z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0-.714-.211-1.38-.574-1.944a4.5 4.5 0 00-3.328-1.944c-.313-.021-.627-.032-.942-.032H9.344c-.315 0-.629.011-.942.032A4.5 4.5 0 005.074 8.556C4.711 9.12 4.5 9.786 4.5 10.5v1.5a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5v-1.5z" />
+          </svg>
+          Imprimir
+        </button>
+      </div>
+
+      <!-- Banner de Aviso Importante -->
+      <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-2xl shadow-sm space-y-2 print:border-slate-300 print:bg-slate-50">
+        <div class="flex items-center gap-2 text-amber-800 font-bold text-sm md:text-base print:text-slate-800">
+          <svg class="w-5 h-5 text-amber-600 print:text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>⚠️ Aviso Importante</span>
+        </div>
+        <p class="text-xs md:text-sm text-amber-900 leading-relaxed font-normal print:text-slate-700">
+          Este sistema é exclusivamente um simulador informativo para o auxílio das unidades de RHs da SESA nos cálculos de horas extras e possui caráter puramente ilustrativo.
+          O simulador foi elaborado seguindo as diretrizes da Lei nº 18.136/2014 e o Manual de Vantagens e Descontos META4 (em 21/05/2026).
+          Os valores aqui gerados não geram quaisquer expectativas de pagamentos, não substituem os dados oficiais contidos no contracheque do servidor e não se sobrepõem às normas estaduais vigentes.
+        </p>
+      </div>
+
+      <!-- Card 1: Configurações Funcionais -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:shadow-none print:p-4 print:border-slate-300 print:mb-4">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2 print:border-b-2">
+          <!-- Ícone de Pasta/Maleta -->
+          <svg class="w-5 h-5 text-slate-400 print:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 .621-.504 1.125-1.125 1.125H4.875c-.621 0-1.125-.504-1.125-1.125v-4.25m16.5 0a2.25 2.25 0 00-1.875-2.217 38.07 38.07 0 00-12.75 0 2.25 2.25 0 00-1.875 2.217m16.5 0a2.25 2.25 0 01-1.875 2.217 38.207 38.207 0 01-12.75 0 2.25 2.25 0 01-1.875-2.217M12 6.75a3 3 0 100-6 3 3 0 000 6zm0 0h.008v.008H12V6.75z" />
+          </svg>
+          1. Informações Funcionais
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-2">
+          <div class="space-y-1.5">
+            <label class="block text-sm font-medium text-slate-700">Tipo de Quadro Funcional</label>
+            <select
+              class="w-full p-2.5 bg-white border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-medium text-slate-700 print:border-none print:bg-transparent print:p-0 print:font-semibold"
+              x-model="quadro"
+            >
+              <option value="QPSS">QPSS (Quadro Próprio dos Serv. da Saúde)</option>
+              <option value="QPPE">QPPE / PSS</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="block text-sm font-medium text-slate-700">Carga Horária Semanal</label>
+            <select
+              class="w-full p-2.5 bg-white border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-medium text-slate-700 print:border-none print:bg-transparent print:p-0 print:font-semibold"
+              x-model.number="carga"
+            >
+              <option value="40">40 horas semanais (Divisor 200)</option>
+              <option value="20">20 horas semanais (Divisor 100)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Informações Salariais -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:shadow-none print:p-4 print:border-slate-300 print:mb-4">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2 print:border-b-2">
+          <!-- Ícone Dinheiro -->
+          <svg class="w-5 h-5 text-slate-400 print:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.214.113a4 4 0 003.572 0l1.214-.643a2 2 0 000-3.486l-1.214-.643a4 4 0 01-3.572 0L9 11.182" />
+          </svg>
+          2. Informações Salariais
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 print:grid-cols-2">
+          
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">Salário Base</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">R$</div>
+              <input type="number" min="0" step="any" placeholder="0,00" class="w-full p-2.5 pl-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="salarioBase" />
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">Gratif. Ativ. Saúde (GAS)</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">R$</div>
+              <input type="number" min="0" step="any" placeholder="0,00" class="w-full p-2.5 pl-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="gas" />
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">Gratif. Adicional Emenda 19</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">R$</div>
+              <input type="number" min="0" step="any" placeholder="0,00" class="w-full p-2.5 pl-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="quinquenio19" />
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">Gratif. Adicional Tempo Serv. (1059)</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">R$</div>
+              <input type="number" min="0" step="any" placeholder="0,00" class="w-full p-2.5 pl-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="quinquenio1059" />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Card 3: Quantidade de Horas -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 print:shadow-none print:p-4 print:border-slate-300 print:mb-4">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b pb-2 print:border-b-2">
+          <!-- Ícone de Relógio -->
+          <svg class="w-5 h-5 text-slate-400 print:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          3. Horas Extras e Adicionais (Quantidade)
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 print:grid-cols-2">
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">H.E Diurna (50%)</label>
+            <div class="relative">
+              <input type="number" min="0" step="any" placeholder="0" class="w-full p-2.5 pr-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="heDiurna" />
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">h</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">H.E Dom/Feriado (100%)</label>
+            <div class="relative">
+              <input type="number" min="0" step="any" placeholder="0" class="w-full p-2.5 pr-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="heDomFer" />
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">h</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">H.E Noturna</label>
+            <div class="relative">
+              <input type="number" min="0" step="any" placeholder="0" class="w-full p-2.5 pr-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="heNoturna" />
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">h</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">Plantão Sobreaviso</label>
+            <div class="relative">
+              <input type="number" min="0" step="any" placeholder="0" class="w-full p-2.5 pr-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="sobreaviso" />
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">h</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 print:break-inside-avoid">
+            <label class="block text-sm font-medium text-slate-700">Adicional Noturno</label>
+            <div class="relative">
+              <input type="number" min="0" step="any" placeholder="0" class="w-full p-2.5 pr-9 bg-white border border-slate-300 rounded-lg shadow-sm font-medium text-slate-800 print:border-b print:border-slate-300 print:shadow-none" x-model.number="adcNoturno" />
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-500 font-medium text-sm">h</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COLUNA DIREITA: Resultados -->
+    <div class="lg:col-span-1 print:w-full print:mt-6">
+      <div class="bg-slate-900 rounded-3xl shadow-xl border border-slate-800 overflow-hidden sticky top-8 flex flex-col print:bg-white print:text-slate-900 print:border-slate-300 print:shadow-none print:static">
+        
+        <div class="p-6 bg-slate-800/50 border-b border-slate-700/50 print:bg-slate-100 print:border-slate-300">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2 print:text-slate-900">
+            <!-- Ícone de Sucesso -->
+            <svg class="w-6 h-6 text-green-400 print:text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Resultados Consolidados
+          </h2>
+        </div>
+
+        <div class="p-6 flex-1 space-y-6 print:p-4">
+          
+          <!-- Bases de Cálculo -->
+          <div class="bg-slate-800 p-4 rounded-xl space-y-2 text-sm border border-slate-700/50 print:bg-slate-50 print:border-slate-300 print:text-slate-800">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400 print:text-slate-600">Somatória 1 (SV1):</span>
+              <span class="font-semibold text-slate-200 print:text-slate-900" x-text="formatCurrency(sv1)"></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400 print:text-slate-600">Somatória 2 (SV2):</span>
+              <span class="font-semibold text-slate-200 print:text-slate-900" x-text="formatCurrency(sv2)"></span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-slate-700 print:border-slate-300 mt-2">
+              <span class="text-slate-300 print:text-slate-700 font-medium">Base Usada p/ H.E:</span>
+              <span class="font-bold text-blue-400 print:text-blue-700">
+                <span x-text="formatCurrency(svPrincipal)"></span> 
+                <span class="text-xs font-normal text-slate-500" x-text="'(' + quadro + ')'"></span>
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-300 print:text-slate-700 font-medium">Divisor Mensal (CH):</span>
+              <span class="font-bold text-blue-400 print:text-blue-700" x-text="ch"></span>
+            </div>
+          </div>
+
+          <!-- Detalhamento Valores -->
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold text-slate-500 print:text-slate-700 uppercase tracking-wider mb-3">Detalhamento dos Valores</h3>
+            
+            <div class="flex justify-between items-center py-1 border-b border-slate-800/20 print:border-slate-200">
+              <span class="text-slate-300 print:text-slate-600 text-sm">H.E Diurna (50%)</span>
+              <span class="font-medium text-slate-200 print:text-slate-800" x-text="formatCurrency(valHeDiurna)"></span>
+            </div>
+            
+            <div class="flex justify-between items-center py-1 border-b border-slate-800/20 print:border-slate-200">
+              <span class="text-slate-300 print:text-slate-600 text-sm">H.E Dom/Feriado (100%)</span>
+              <span class="font-medium text-slate-200 print:text-slate-800" x-text="formatCurrency(valHeDomFer)"></span>
+            </div>
+            
+            <div class="flex justify-between items-center py-1 border-b border-slate-800/20 print:border-slate-200">
+              <span class="text-slate-300 print:text-slate-600 text-sm">H.E Noturna</span>
+              <span class="font-medium text-slate-200 print:text-slate-800" x-text="formatCurrency(valHeNoturna)"></span>
+            </div>
+            
+            <div class="flex justify-between items-center py-1 border-b border-slate-800/20 print:border-slate-200">
+              <span class="text-slate-300 print:text-slate-600 text-sm">Plantão Sobreaviso (SV2)</span>
+              <span class="font-medium text-slate-200 print:text-slate-800" x-text="formatCurrency(valSobreaviso)"></span>
+            </div>
+            
+            <div class="flex justify-between items-center py-1 border-b border-slate-800/20 print:border-slate-200">
+              <span class="text-slate-300 print:text-slate-600 text-sm">Adicional Noturno (SV1)</span>
+              <span class="font-medium text-slate-200 print:text-slate-800" x-text="formatCurrency(valAdcNoturno)"></span>
+            </div>
+          </div>
+
+          <!-- Redutor de Horas Extras -->
+          <div class="border-t border-slate-700 print:border-slate-300 pt-5 space-y-3">
+            <h3 class="text-xs font-bold text-slate-500 print:text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <!-- Ícone de Alerta -->
+              <svg class="w-4 h-4 print:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Redutor de Horas Extras
+            </h3>
+            
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-slate-300 print:text-slate-600">Somatória H.E. (SHE):</span>
+              <span class="text-slate-200 print:text-slate-900 font-medium" x-text="formatCurrency(she)"></span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-slate-300 print:text-slate-600">Limite 33,33% (RT):</span>
+              <span class="text-slate-200 print:text-slate-900 font-medium" x-text="formatCurrency(rt)"></span>
+            </div>
+            
+            <!-- Resultado reativo do redutor -->
+            <template x-if="redutorAplicado > 0">
+              <div class="flex flex-col gap-1 text-red-400 bg-red-400/15 border-2 border-red-500 p-4 rounded-xl text-center mt-2 shadow-inner animate-pulse print:text-red-700 print:bg-red-50 print:border-red-400 print:animate-none">
+                <span class="text-xs font-bold uppercase tracking-wider text-red-300 print:text-red-800">
+                  ⚠️ Limite Ultrapassado! Excedente Deduzido:
+                </span>
+                <span class="text-2xl md:text-3xl font-black text-red-500 print:text-red-700" x-text="'- ' + formatCurrency(redutorAplicado)"></span>
+              </div>
+            </template>
+            
+            <template x-if="redutorAplicado <= 0">
+              <div class="flex justify-between items-center text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 p-2.5 rounded-lg text-sm mt-2 print:text-green-700 print:bg-green-50 print:border-green-300">
+                <span class="font-semibold">Dentro do limite, dedução:</span>
+                <span class="font-bold" x-text="formatCurrency(0)"></span>
+              </div>
+            </template>
+          </div>
+
+          <!-- Total Final -->
+          <div class="border-t border-slate-700/80 print:border-slate-300 pt-5 mt-6">
+            <div class="flex justify-between items-end">
+              <div class="flex flex-col">
+                <span class="text-slate-400 print:text-slate-600 text-sm mb-1">Total Líquido a Receber</span>
+                <span class="text-xs text-slate-500 print:text-slate-400">(Ganhos - Redutor)</span>
+              </div>
+              <span class="text-3xl font-black text-emerald-400 print:text-green-700" x-text="formatCurrency(totalLiquido)"></span>
+            </div>
+          </div>
+          
+          <!-- Observação técnica rodapé -->
+          <div class="pt-2 text-slate-600 text-[11px] flex gap-1.5 leading-snug print:text-slate-500">
+            <!-- Ícone de Info -->
+            <svg class="w-5 h-5 min-w-fit mt-0.5 print:hidden text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p>
+              * O Fator Noturno aplicado na H.E. Noturna é de 1.3714 e no Adicional Noturno é de 1.14285. O Adicional Noturno aplica obrigatoriamente a base SV1. O Plantão Sobreaviso utiliza a base SV2 com multiplicador de 0,3333, sem fator noturno.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rodapé institucional com assinatura de autoria -->
+  <footer class="mt-auto text-center text-xs text-slate-500 border-t border-slate-200 pt-6 pb-6 w-full max-w-6xl print:mt-8 print:border-t-2 print:border-slate-300 print:text-slate-600">
+    <p class="font-semibold text-slate-700 print:text-slate-800">Elaborado por Rauni Gomes - Assistente Técnico NRHS/SESA</p>
+    <p class="text-[10px] mt-1 text-slate-400 print:text-slate-500">Secretaria de Estado da Saúde do Paraná — Todos os direitos reservados para simulações internas.</p>
+  </footer>
+</body>
+</html>
