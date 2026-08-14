@@ -18,9 +18,17 @@ SESA/FUNEAS e calcular horas extras a partir dos relatorios META4.
 Abra o PowerShell na pasta do projeto e execute:
 
 ```powershell
-py -3.14 -m pip install --upgrade pip
-py -3.14 -m pip install -r requirements.txt
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 Copy-Item .env.example .env
+```
+
+Se o PowerShell impedir a ativação do ambiente, execute a aplicação diretamente:
+
+```powershell
+.\.venv\Scripts\python.exe main.py
 ```
 
 Edite o arquivo `.env` antes do primeiro uso. Ele contém caminhos locais e não
@@ -116,7 +124,7 @@ Não altere os nomes dessas abas. O relatório final é criado na mesma pasta da
 Inicie a aplicação:
 
 ```powershell
-py -3.14 main.py
+.\.venv\Scripts\python.exe main.py
 ```
 
 No menu principal:
@@ -154,12 +162,12 @@ com `ATENCAO` indicam que nenhum relatório válido foi produzido.
 
 ## Verificação técnica
 
-Execute no PowerShell, a partir da pasta do projeto:
+Com o ambiente virtual ativado:
 
 ```powershell
-py -3.14 -m unittest discover -s tests -v
-py -3.14 -m pip check
+python -m unittest discover -s tests -v
+python -m pip check
 ```
 
-Antes de publicar, confirme com `git status` que `.env`, `.idea`,
+Antes de publicar, confirme com `git status` que `.env`, `.venv`, `.idea`,
 `__pycache__`, logs e planilhas operacionais não fazem parte da entrega.
