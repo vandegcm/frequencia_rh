@@ -255,7 +255,15 @@ class GeradorRelatorios:
         # PREENCHIMENTO DOS DADOS
         # ---------------------------------------------------------
         linha_ref = 2
+        chaves_horas = ('50d', '50n', '100', 'sa')
         for i, id_func in enumerate(lista_ids):
+            tem_horas = any(
+                (l_bh[chave][i] or 0) != 0 or (l_hr[chave][i] or 0) != 0
+                for chave in chaves_horas
+            )
+            if not tem_horas:
+                continue
+
             if id_func not in calculos:
                 aba.write(linha_ref, 0, id_func)
                 aba.write(linha_ref, 1, "DADOS INDISPONIVEIS")
@@ -289,7 +297,6 @@ class GeradorRelatorios:
 
                 # Total Horas (Banco de Horas + Horas Realizadas)
                 linha_excel = linha_ref + 1
-                chaves_horas = ('50d', '50n', '100', 'sa')
                 for deslocamento, chave in enumerate(chaves_horas):
                     coluna_banco = xl_col_to_name(7 + deslocamento)
                     coluna_realizadas = xl_col_to_name(11 + deslocamento)

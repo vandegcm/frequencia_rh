@@ -133,12 +133,12 @@ class RelatorioExtrasTests(unittest.TestCase):
         with TemporaryDirectory() as pasta:
             GeradorRelatorios.gerar_relatorio_extras(
                 pasta_salvar=pasta,
-                lista_ids=[111, 222],
-                l_bh={'50d': [0, 0], '50n': [0, 0], '100': [0, 0], 'sa': [0, 0]},
-                l_hr={'50d': [0, 0], '50n': [0, 0], '100': [0, 0], 'sa': [0, 0]},
+                lista_ids=[111, 222, 333],
+                l_bh={'50d': [1, 0, 0], '50n': [0, 0, 0], '100': [0, 0, 0], 'sa': [0, 0, 0]},
+                l_hr={'50d': [0, 1, 0], '50n': [0, 0, 0], '100': [0, 0, 0], 'sa': [0, 0, 0]},
                 dados_funcionarios_meta4=[],
                 calculos={222: {'duplo_vinculo': True, 'nome': 'Servidor Duplicado'}},
-                problemas={'dados_indisponiveis': [111], 'duplo_vinculo': [222]},
+                problemas={'dados_indisponiveis': [111, 333], 'duplo_vinculo': [222]},
             )
 
             arquivo = next(Path(pasta).glob('*.xlsx'))
@@ -148,6 +148,8 @@ class RelatorioExtrasTests(unittest.TestCase):
             self.assertEqual(aba['A4'].value, 222)
             self.assertEqual(aba['B4'].value, 'Servidor Duplicado')
             self.assertEqual(aba['C4'].value, 'DUPLO VÍNCULO')
+            self.assertEqual(aba.max_row, 4)
+            self.assertNotIn(333, (celula.value for celula in aba['A']))
 
     def test_relatorio_usa_estrutura_legada_com_quadro(self):
         calc = CalculadoraHorasExtras(
