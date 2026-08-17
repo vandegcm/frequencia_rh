@@ -74,15 +74,25 @@ class CalculadoraHorasExtras:
         """Divisor mensal (carga horária -> horas/mês)."""
         return 200 if self.carga == 40 else 100
 
+    @property
+    def valor_hora(self) -> float:
+        """Valor-base da hora usado no cálculo das horas extras."""
+        return self.sv_principal / self.ch
+
+    @property
+    def valor_hora_sobreaviso(self) -> float:
+        """Valor unitário da hora de sobreaviso."""
+        return (self.sv2 / self.ch) * self.MULT_SOBREAVISO
+
     def val_he_diurna(self) -> float:
-        return (self.sv_principal / self.ch) * self.he_diurna * self.MULT_HE_DIURNA
+        return self.valor_hora * self.he_diurna * self.MULT_HE_DIURNA
 
     def val_he_dom_fer(self) -> float:
-        return (self.sv_principal / self.ch) * self.he_dom_fer * self.MULT_HE_DOMFER
+        return self.valor_hora * self.he_dom_fer * self.MULT_HE_DOMFER
 
     def val_he_noturna(self) -> float:
         return (
-            (self.sv_principal / self.ch)
+            self.valor_hora
             * self.he_noturna
             * self.MULT_HE_DIURNA
             * self.FT_HE_NOTURNA
@@ -90,7 +100,7 @@ class CalculadoraHorasExtras:
 
     def val_sobreaviso(self) -> float:
         """Plantão sobreaviso usa sempre SV2, sem fator noturno."""
-        return (self.sv2 / self.ch) * self.sobreaviso * self.MULT_SOBREAVISO
+        return self.valor_hora_sobreaviso * self.sobreaviso
 
     def val_adc_noturno(self) -> float:
         """Adicional noturno usa obrigatoriamente SV1."""
@@ -134,6 +144,8 @@ class CalculadoraHorasExtras:
             "sv2": self.sv2,
             "sv_principal": self.sv_principal,
             "ch": self.ch,
+            "valor_hora": self.valor_hora,
+            "valor_hora_sobreaviso": self.valor_hora_sobreaviso,
             "val_he_diurna": self.val_he_diurna(),
             "val_he_dom_fer": self.val_he_dom_fer(),
             "val_he_noturna": self.val_he_noturna(),

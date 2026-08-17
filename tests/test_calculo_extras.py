@@ -70,6 +70,16 @@ class CalculadoraHorasExtrasTests(unittest.TestCase):
         self.assertAlmostEqual(calc.total_bruto_geral(), 1349.985)
         self.assertAlmostEqual(calc.total_liquido(), 1149.885)
 
+    def test_valores_unitarios_expostos_no_resultado(self):
+        calc = CalculadoraHorasExtras(
+            quadro='QPSS', carga=40, base_sv1=3000, base_sv2=2400
+        )
+
+        resultado = calc.calcular()
+
+        self.assertEqual(resultado['valor_hora'], 15)
+        self.assertAlmostEqual(resultado['valor_hora_sobreaviso'], 3.9996)
+
     def test_sobreaviso_dentro_do_redutor_sem_duplicacao(self):
         calc = CalculadoraHorasExtras(
             carga=40,
@@ -119,7 +129,27 @@ class CalculadoraHorasExtrasTests(unittest.TestCase):
 
 
 class RelatorioExtrasTests(unittest.TestCase):
-    def test_relatorio_recebe_totais_corrigidos_sem_alterar_layout(self):
+    def test_relatorio_mantem_linhas_de_problemas(self):
+        with TemporaryDirectory() as pasta:
+            GeradorRelatorios.gerar_relatorio_extras(
+                pasta_salvar=pasta,
+                lista_ids=[111, 222],
+                l_bh={'50d': [0, 0], '50n': [0, 0], '100': [0, 0], 'sa': [0, 0]},
+                l_hr={'50d': [0, 0], '50n': [0, 0], '100': [0, 0], 'sa': [0, 0]},
+                dados_funcionarios_meta4=[],
+                calculos={222: {'duplo_vinculo': True, 'nome': 'Servidor Duplicado'}},
+                problemas={'dados_indisponiveis': [111], 'duplo_vinculo': [222]},
+            )
+
+            arquivo = next(Path(pasta).glob('*.xlsx'))
+            aba = openpyxl.load_workbook(arquivo, data_only=True)['HE']
+
+            self.assertEqual((aba['A3'].value, aba['B3'].value), (111, 'DADOS INDISPONIVEIS'))
+            self.assertEqual(aba['A4'].value, 222)
+            self.assertEqual(aba['B4'].value, 'Servidor Duplicado')
+            self.assertEqual(aba['C4'].value, 'DUPLO VÍNCULO')
+
+    def test_relatorio_usa_estrutura_legada_com_quadro(self):
         calc = CalculadoraHorasExtras(
             carga=40,
             base_sv1=3000,
@@ -150,12 +180,53 @@ class RelatorioExtrasTests(unittest.TestCase):
             arquivo = next(Path(pasta).glob('*.xlsx'))
             aba = openpyxl.load_workbook(arquivo, data_only=True)['HE']
 
-            self.assertEqual(aba['P3'].value, 30)
-            self.assertAlmostEqual(aba['T3'].value, 149.985)
-            self.assertAlmostEqual(aba['U3'].value, 149.985)
-            self.assertEqual(aba['W3'].value, 0)
-            self.assertAlmostEqual(aba['X3'].value, 149.985)
-            self.assertEqual(aba['AB3'].value, 0)
+            self.assertEqual(aba.max_column, 33)
+            self.assertEqual(aba['D2'].value, 'Quadro')
+            self.assertEqual(aba['E2'].value, 'Valor Sobreaviso')
+            self.assertEqual(aba['F2'].value, 'Valor Hora')
+            self.assertEqual(aba['G2'].value, 'Limite Pagar')
+            self.assertEqual(aba['P1'].value, 'Total Horas')
+            self.assertEqual(aba['T1'].value, 'Horas a Pagar')
+            self.assertEqual(aba['X1'].value, 'Valor Pago')
+            self.assertEqual(aba['AB1'].value, 'Total Pago')
+            self.assertEqual(aba['AC1'].value, 'Dif.')
+            self.assertEqual(aba['AD1'].value, 'Saldo Atualizado')
+            self.assertAlmostEqual(aba['E3'].value, 4.9995)
+            self.assertEqual(aba['F3'].value, 15)
+            self.assertAlmostEqual(aba['G3'].value, 999.9)
+            self.assertEqual(aba['S3'].value, 30)
+            self.assertEqual(aba['W3'].value, 30)
+            self.assertAlmostEqual(aba['AA3'].value, 149.985)
+            self.assertAlmostEqual(aba['AB3'].value, 149.985)
+            self.assertAlmostEqual(aba['AC3'].value, 849.915)
+            self.assertEqual(aba['AG3'].value, 0)
+
+            aba_formulas = openpyxl.load_workbook(arquivo, data_only=False)['HE']
+            self.assertEqual(aba_formulas['P3'].value, '=H3+L3')
+            self.assertEqual(aba_formulas['S3'].value, '=K3+O3')
+            self.assertEqual(aba_formulas['AB3'].value, '=SUM(X3:AA3)')
+            self.assertEqual(aba_formulas['AC3'].value, '=G3-AB3')
+            self.assertEqual(aba_formulas['AD3'].value, '=P3-T3')
+            self.assertEqual(aba_formulas['AG3'].value, '=S3-W3')
+            self.assertIn('A1:G1', {str(rng) for rng in aba_formulas.merged_cells.ranges})
+            self.assertIn('AD1:AG1', {str(rng) for rng in aba_formulas.merged_cells.ranges})
+
+            self.assertEqual(aba_formulas['P1'].fill.fgColor.rgb, 'FFE4DFEC')
+            self.assertEqual(aba_formulas['P2'].fill.fgColor.rgb, 'FFE4DFEC')
+            self.assertEqual(aba_formulas['P3'].fill.fgColor.rgb, 'FFE4DFEC')
+            self.assertEqual(aba_formulas['X1'].fill.fgColor.rgb, 'FFCCC1D9')
+            self.assertEqual(aba_formulas['X2'].fill.fgColor.rgb, 'FFCCC1D9')
+            self.assertEqual(aba_formulas['X3'].fill.fgColor.rgb, 'FFCCC1D9')
+            self.assertEqual(aba_formulas['AB1'].fill.fgColor.rgb, 'FF92D050')
+            self.assertEqual(aba_formulas['AB3'].fill.fgColor.rgb, 'FF92D050')
+            self.assertEqual(aba_formulas['AC1'].fill.fgColor.rgb, 'FF92D050')
+            self.assertEqual(aba_formulas['AC3'].fill.fgColor.rgb, 'FF92D050')
+            self.assertEqual(aba_formulas['AD1'].fill.fgColor.rgb, 'FFFFC000')
+            self.assertEqual(aba_formulas['AD2'].fill.fgColor.rgb, 'FFFFC000')
+            self.assertEqual(aba_formulas['AD3'].fill.fgColor.rgb, 'FFFFC000')
+
+            for celula in ('E3', 'F3', 'G3', 'X3', 'Y3', 'Z3', 'AA3', 'AB3', 'AC3'):
+                self.assertEqual(aba_formulas[celula].number_format, '0.00')
 
 
 if __name__ == '__main__':

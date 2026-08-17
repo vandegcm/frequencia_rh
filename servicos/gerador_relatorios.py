@@ -1,4 +1,5 @@
 import xlsxwriter
+from xlsxwriter.utility import xl_col_to_name
 from typing import List, Dict
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +18,7 @@ class GeradorRelatorios:
             if chave not in grupos:
                 grupos[chave] = []
             grupos[chave].append(f)
-            
+
         for (fonte, setor), lista_funcs in grupos.items():
             nome_arquivo = obter_caminho_unico(pasta_salvar, f'lista de frequencia - {fonte} - {setor}', 'xlsx')
             arquivo = xlsxwriter.Workbook(nome_arquivo)
@@ -149,57 +150,106 @@ class GeradorRelatorios:
             'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9'
         })
         formato_normal = arquivo.add_format({'align': 'center', 'valign': 'vcenter'})
-        
-        # Ajustar a largura das colunas (todas para 13)
-        aba.set_column('A:AB', 13, formato_normal)
+        formato_monetario = arquivo.add_format({
+            'align': 'center', 'valign': 'vcenter', 'num_format': '0.00'
+        })
+
+        formato_cabecalho_total_horas = arquivo.add_format({
+            'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter',
+            'bg_color': '#E4DFEC'
+        })
+        formato_total_horas = arquivo.add_format({
+            'align': 'center', 'valign': 'vcenter', 'bg_color': '#E4DFEC'
+        })
+
+        formato_cabecalho_valor_pago = arquivo.add_format({
+            'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter',
+            'bg_color': '#CCC1D9'
+        })
+        formato_valor_pago = arquivo.add_format({
+            'align': 'center', 'valign': 'vcenter', 'bg_color': '#CCC1D9',
+            'num_format': '0.00'
+        })
+
+        formato_cabecalho_total_pago = arquivo.add_format({
+            'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter',
+            'text_wrap': True, 'bg_color': '#92D050'
+        })
+        formato_total_pago = arquivo.add_format({
+            'align': 'center', 'valign': 'vcenter', 'bg_color': '#92D050',
+            'num_format': '0.00'
+        })
+
+        formato_cabecalho_saldo = arquivo.add_format({
+            'bold': True, 'border': 1, 'align': 'center', 'valign': 'vcenter',
+            'bg_color': '#FFC000'
+        })
+        formato_saldo = arquivo.add_format({
+            'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC000'
+        })
+
+        # Largura e formato-base de cada bloco.
+        aba.set_column('A:A', 13, formato_normal)
+        aba.set_column('B:B', 35, formato_normal)
+        aba.set_column('C:C', 30, formato_normal)
+        aba.set_column('D:D', 13, formato_normal)
+        aba.set_column('E:E', 17, formato_monetario)
+        aba.set_column('F:F', 13, formato_monetario)
+        aba.set_column('G:G', 14, formato_monetario)
+        aba.set_column('H:O', 13, formato_normal)
+        aba.set_column('P:S', 13, formato_total_horas)
+        aba.set_column('T:W', 13, formato_normal)
+        aba.set_column('X:AA', 13, formato_valor_pago)
+        aba.set_column('AB:AC', 13, formato_total_pago)
+        aba.set_column('AD:AG', 13, formato_saldo)
         
         # ---------------------------------------------------------
         # CABEÇALHOS (LINHA 1 E 2)
         # ---------------------------------------------------------
-        # 1. Informações do Servidor (A-D)
-        aba.merge_range(0, 0, 0, 3, 'Informações do Servidor', formato_cabecalho)
-        headers_info = ['ID', 'Nome', 'Função', 'Quadro']
+        # 1. Informações do Servidor (A-G)
+        aba.merge_range(0, 0, 0, 6, 'Informações do Servidor', formato_cabecalho)
+        headers_info = [
+            'ID', 'Nome', 'Função', 'Quadro', 'Valor Sobreaviso',
+            'Valor Hora', 'Limite Pagar'
+        ]
         for i, h in enumerate(headers_info):
             aba.write(1, i, h, formato_cabecalho)
             
-        # 2. Banco de Horas (E-H)
-        aba.merge_range(0, 4, 0, 7, 'Banco Anterior', formato_cabecalho)
+        # 2. Banco de Horas (H-K)
+        aba.merge_range(0, 7, 0, 10, 'Banco de Horas', formato_cabecalho)
         headers_bh = ['50 D', '50 N', '100%', 'SA']
         for i, h in enumerate(headers_bh):
-            aba.write(1, i+4, h, formato_cabecalho)
+            aba.write(1, i+7, h, formato_cabecalho)
             
-        # 3. Horas Realizadas (I-L)
-        aba.merge_range(0, 8, 0, 11, 'Horas Realizadas', formato_cabecalho)
+        # 3. Horas Realizadas (L-O)
+        aba.merge_range(0, 11, 0, 14, 'Horas Realizadas', formato_cabecalho)
         for i, h in enumerate(headers_bh):
-            aba.write(1, i+8, h, formato_cabecalho)
+            aba.write(1, i+11, h, formato_cabecalho)
             
-        # 4. Horas a Pagar (M-P)
-        aba.merge_range(0, 12, 0, 15, 'Horas a Pagar', formato_cabecalho)
+        # 4. Total Horas (P-S)
+        aba.merge_range(0, 15, 0, 18, 'Total Horas', formato_cabecalho_total_horas)
         for i, h in enumerate(headers_bh):
-            aba.write(1, i+12, h, formato_cabecalho)
+            aba.write(1, i+15, h, formato_cabecalho_total_horas)
             
-        # 5. Valores Brutos R$ (Q-T)
-        aba.merge_range(0, 16, 0, 19, 'Valores Brutos', formato_cabecalho)
-        headers_bruto = ['HE Diurna', 'HE Noturna', 'HE 100%', 'Sobreaviso']
-        for i, h in enumerate(headers_bruto):
-            aba.write(1, i+16, h, formato_cabecalho)
-            
-        # 6. Totais (U) - Mesclado verticalmente
-        aba.merge_range(0, 20, 1, 20, 'Total Bruto', formato_cabecalho)
-        
-        # 7. Limites e Redutor (V-W)
-        aba.merge_range(0, 21, 0, 22, 'Descontos', formato_cabecalho)
-        headers_desc = ['Limite RT', 'Redutor']
-        for i, h in enumerate(headers_desc):
-            aba.write(1, i+21, h, formato_cabecalho)
-            
-        # 8. Total Líquido (X) - Mesclado verticalmente
-        aba.merge_range(0, 23, 1, 23, 'Total Líquido', formato_cabecalho)
-        
-        # 9. Saldo Atualizado (Y-AB)
-        aba.merge_range(0, 24, 0, 27, 'Saldo Atualizado', formato_cabecalho)
+        # 5. Horas a Pagar (T-W), equivalente ao antigo "Pagar Calculo"
+        aba.merge_range(0, 19, 0, 22, 'Horas a Pagar', formato_cabecalho)
         for i, h in enumerate(headers_bh):
-            aba.write(1, i+24, h, formato_cabecalho)
+            aba.write(1, i+19, h, formato_cabecalho)
+
+        # 6. Valor Pago (X-AA)
+        aba.merge_range(0, 23, 0, 26, 'Valor Pago', formato_cabecalho_valor_pago)
+        headers_valor = ['50 D', '50 N', '100 %', 'SA.']
+        for i, h in enumerate(headers_valor):
+            aba.write(1, i+23, h, formato_cabecalho_valor_pago)
+
+        # 7. Total Pago (AB) e Dif. (AC), mesclados verticalmente
+        aba.merge_range(0, 27, 1, 27, 'Total Pago', formato_cabecalho_total_pago)
+        aba.merge_range(0, 28, 1, 28, 'Dif.', formato_cabecalho_total_pago)
+
+        # 8. Saldo Atualizado (AD-AG)
+        aba.merge_range(0, 29, 0, 32, 'Saldo Atualizado', formato_cabecalho_saldo)
+        for i, h in enumerate(headers_valor):
+            aba.write(1, i+29, h, formato_cabecalho_saldo)
 
         # ---------------------------------------------------------
         # PREENCHIMENTO DOS DADOS
@@ -221,46 +271,73 @@ class GeradorRelatorios:
                 aba.write(linha_ref, 1, c['nome'])
                 aba.write(linha_ref, 2, c['funcao'])
                 aba.write(linha_ref, 3, c['quadro'])
+                aba.write(linha_ref, 4, c['valor_hora_sobreaviso'], formato_monetario)
+                aba.write(linha_ref, 5, c['valor_hora'], formato_monetario)
+                aba.write(linha_ref, 6, c['rt'], formato_monetario)
                 
                 # Banco de Horas
-                aba.write(linha_ref, 4, l_bh['50d'][i])
-                aba.write(linha_ref, 5, l_bh['50n'][i])
-                aba.write(linha_ref, 6, l_bh['100'][i])
-                aba.write(linha_ref, 7, l_bh['sa'][i])
+                aba.write(linha_ref, 7, l_bh['50d'][i])
+                aba.write(linha_ref, 8, l_bh['50n'][i])
+                aba.write(linha_ref, 9, l_bh['100'][i])
+                aba.write(linha_ref, 10, l_bh['sa'][i])
                 
                 # Horas Realizadas
-                aba.write(linha_ref, 8, l_hr['50d'][i])
-                aba.write(linha_ref, 9, l_hr['50n'][i])
-                aba.write(linha_ref, 10, l_hr['100'][i])
-                aba.write(linha_ref, 11, l_hr['sa'][i])
+                aba.write(linha_ref, 11, l_hr['50d'][i])
+                aba.write(linha_ref, 12, l_hr['50n'][i])
+                aba.write(linha_ref, 13, l_hr['100'][i])
+                aba.write(linha_ref, 14, l_hr['sa'][i])
+
+                # Total Horas (Banco de Horas + Horas Realizadas)
+                linha_excel = linha_ref + 1
+                chaves_horas = ('50d', '50n', '100', 'sa')
+                for deslocamento, chave in enumerate(chaves_horas):
+                    coluna_banco = xl_col_to_name(7 + deslocamento)
+                    coluna_realizadas = xl_col_to_name(11 + deslocamento)
+                    total_horas = l_bh[chave][i] + l_hr[chave][i]
+                    aba.write_formula(
+                        linha_ref,
+                        15 + deslocamento,
+                        f'={coluna_banco}{linha_excel}+{coluna_realizadas}{linha_excel}',
+                        formato_total_horas,
+                        total_horas,
+                    )
                 
                 # Horas a Pagar
-                aba.write(linha_ref, 12, c['horas_pagas']['50d'])
-                aba.write(linha_ref, 13, c['horas_pagas']['50n'])
-                aba.write(linha_ref, 14, c['horas_pagas']['100'])
-                aba.write(linha_ref, 15, c['horas_pagas']['sa'])
+                aba.write(linha_ref, 19, c['horas_pagas']['50d'])
+                aba.write(linha_ref, 20, c['horas_pagas']['50n'])
+                aba.write(linha_ref, 21, c['horas_pagas']['100'])
+                aba.write(linha_ref, 22, c['horas_pagas']['sa'])
                 
-                # Valores Brutos
-                aba.write(linha_ref, 16, c['val_he_diurna'])
-                aba.write(linha_ref, 17, c['val_he_noturna'])
-                aba.write(linha_ref, 18, c['val_he_dom_fer'])
-                aba.write(linha_ref, 19, c['val_sobreaviso'])
-                
-                # Total Bruto
-                aba.write(linha_ref, 20, c['total_bruto_geral'])
-                
-                # Descontos
-                aba.write(linha_ref, 21, c['rt'])
-                aba.write(linha_ref, 22, c['redutor_aplicado'])
-                
-                # Total Liquido
-                aba.write(linha_ref, 23, c['total_liquido'])
-                
-                # Saldo Atualizado
-                aba.write(linha_ref, 24, c['novo_saldo']['50d'])
-                aba.write(linha_ref, 25, c['novo_saldo']['50n'])
-                aba.write(linha_ref, 26, c['novo_saldo']['100'])
-                aba.write(linha_ref, 27, c['novo_saldo']['sa'])
+                # Valor Pago
+                valores_pagos = (
+                    c['val_he_diurna'], c['val_he_noturna'],
+                    c['val_he_dom_fer'], c['val_sobreaviso']
+                )
+                for deslocamento, valor in enumerate(valores_pagos):
+                    aba.write(linha_ref, 23 + deslocamento, valor, formato_valor_pago)
+
+                # Total Pago e diferença restante para o limite
+                total_pago = sum(valores_pagos)
+                aba.write_formula(
+                    linha_ref, 27, f'=SUM(X{linha_excel}:AA{linha_excel})',
+                    formato_total_pago, total_pago
+                )
+                aba.write_formula(
+                    linha_ref, 28, f'=G{linha_excel}-AB{linha_excel}',
+                    formato_total_pago, c['rt'] - total_pago
+                )
+
+                # Saldo Atualizado (Total Horas - Horas a Pagar)
+                for deslocamento, chave in enumerate(chaves_horas):
+                    coluna_total = xl_col_to_name(15 + deslocamento)
+                    coluna_pagar = xl_col_to_name(19 + deslocamento)
+                    aba.write_formula(
+                        linha_ref,
+                        29 + deslocamento,
+                        f'={coluna_total}{linha_excel}-{coluna_pagar}{linha_excel}',
+                        formato_saldo,
+                        c['novo_saldo'][chave],
+                    )
                 
             linha_ref += 1
             
